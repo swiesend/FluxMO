@@ -6,7 +6,7 @@ using Flux: crossentropy, throttle
 using FluxMO.Clustering: knn_clustering
 using FluxMO.Validation: betacv
 
-# @testset "Deep-Autoencoder with Crossentropy and BetaCV loss" begin
+# @testset "Deep-Autoencoder with *cross entropy* and *BetaCV* loss" begin
 
 function train(seed::Int)
     srand(seed)
