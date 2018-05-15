@@ -9,7 +9,7 @@ using Flux: crossentropy, throttle
 using FluxMO.Clustering: knn_clustering
 using FluxMO.Validation: betacv
 
-function train(seed::Int)
+function train(seed::Int = rand(1:10000))
     srand(seed)
 
     N = 1000    # samples
@@ -101,6 +101,6 @@ function train(seed::Int)
     end
 end
 
-train(rand(1:10000))
+train()
 
 # end
