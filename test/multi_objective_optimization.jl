@@ -36,7 +36,7 @@ function train(seed::Int = rand(1:10000))
         # Embed all samples from X into the latent space of size L
         embds_tracked = map(x-> m[1:embd_layer](x), X)
 
-        # untracked embedded points
+        # untracked embedded points as matrix
         embds  = hcat(map(ta->ta.data, embds_tracked)...)
         
         # Cluster the current embeddings without tracking to generate
