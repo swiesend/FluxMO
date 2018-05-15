@@ -68,7 +68,7 @@ function train(seed::Int)
         #   * Do I have to treat it as second model with an supervised setting?
         #   * or can I apply the `betacv` as intendet to the existing model?
         if i != -1 && i % floor(Int, (N-1)/3) == 0
-            println("applying betacv after $i samples")
+            println("applying betacv() after $i samples")
             bcv = supervised_betacv()
         end
 
