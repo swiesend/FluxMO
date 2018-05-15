@@ -35,6 +35,8 @@ function train(seed::Int)
         m_copy = deepcopy(m)
         # Embed all samples from X into the latent space of size L
         embds_tracked = map(x-> m_copy[1:embd_layer](x), X)
+
+        # untracked embedded points
         embds  = hcat(map(ta->ta.data, embds_tracked)...)
         
         # Cluster the current embeddings without tracking to generate
@@ -53,7 +55,7 @@ function train(seed::Int)
         bcv
     end
 
-    function loss(x, y, i)
+    function loss(x, y, i = -1)
 
         # unsupervised
         ŷ = m(x)
@@ -67,6 +69,9 @@ function train(seed::Int)
         # How to backtrack this function efficently?
         #   * Do I have to treat it as second model with an supervised setting?
         #   * or can I apply the `betacv` as intendet to the existing model?
+
+        # apply after a fraction of all seen samples
+        # do not apply when called manually from the callback
         if i != -1 && i % floor(Int, (N-1)/3) == 0
             println("applying betacv() after $i samples")
             bcv = supervised_betacv()
@@ -80,7 +85,7 @@ function train(seed::Int)
 
     function callback()
         ns = rand(1:N-1, round(Int, sqrt(N)))
-        ls = map(n->loss(X[n], Y[n], -1).tracker.data, ns)
+        ls = map(n->loss(X[n], Y[n]).tracker.data, ns)
         println("Training:  loss: ", sum(ls), "\tstd: ", std(ls))
 
         # embeddings
