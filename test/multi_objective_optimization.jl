@@ -35,22 +35,32 @@ function train(seed::Int = rand(1:10000))
         
         # Embed all samples from X into the latent space of size L
         embds_tracked = map(x-> m[1:embd_layer](x), X)
+        # 999-element Array{TrackedArray{…,Array{Float64,1}},1}:
+        # param([0.63072, -0.046672])  
+        # ⋮
 
         # untracked embedded points as matrix
         embds  = hcat(map(ta->ta.data, embds_tracked)...)
+        # 2×999 Array{Float64,2}:
         
         # Cluster the current embeddings without tracking to generate
         # a supervised scenario.
         # This clould also be done by DBSCAN, OPTICS, K-Means ...
         clustering, _ = knn_clustering(embds)
+        # Array{Array{Int64,1},1}
+        # Array{Int64,1}[[350, 837, 466, 364, 600, 964, 271, 976, 1, 804], …
 
         # Obtain tracked embedded values from the clustering
         embds_clustered_tracked = map(c->map(i->embds_tracked[i],c), clustering)
+        # 221-element Array{Array{TrackedArray{…,Array{Float64,1}},1},1}:
+        # TrackedArray{…,Array{Float64,1}}[param([0.311645, 0.0285734]), param([0.309032, 0.019196])] 
+        # ⋮
 
         # Validate the clustering via BetaCV measure (small is good).
         # This is done with the tracked values, as it should influence
         # the model weights and biases towards optimizing this measure.
         bcv = betacv(embds_clustered_tracked)
+        # Flux.Tracker.TrackedReal{Float64}
 
         # untracked betacv calculates fine.
         # embds_clustered = map(c->map(i->embds[:,i],c), clustering)
