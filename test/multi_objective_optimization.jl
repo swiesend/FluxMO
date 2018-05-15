@@ -46,15 +46,21 @@ function train(seed::Int = rand(1:10000))
 
         # Obtain tracked embedded values from the clustering
         embds_clustered_tracked = map(c->map(i->embds_tracked[i],c), clustering)
-        
+
         # Validate the clustering via BetaCV measure (small is good).
         # This is done with the tracked values, as it should influence
         # the model weights and biases towards optimizing this measure.
         bcv = betacv(embds_clustered_tracked)
-        @show bcv
 
+        # untracked betacv calculates fine.
+        # embds_clustered = map(c->map(i->embds[:,i],c), clustering)
+        # bcv = betacv(embds_clustered)
+
+        @show bcv
         bcv
     end
+
+    last_bcv = 0.0
 
     function loss(x, y, i = -1)
 
@@ -63,8 +69,7 @@ function train(seed::Int = rand(1:10000))
         ce = crossentropy(ŷ, y)
 
         # supervised
-        bcv = 0.0
-        
+
         # NOTE:
         # This is where I like to apply the second optimization...
         # How to backtrack this function efficently?
@@ -75,11 +80,11 @@ function train(seed::Int = rand(1:10000))
         # do not apply when called manually from the callback
         if i != -1 && i % floor(Int, (N-1)/3) == 0
             println("applying betacv() after $i samples")
-            bcv = supervised_betacv()
+            last_bcv = supervised_betacv()
         end
 
         # optimize both metrics
-        ce + bcv
+        ce + last_bcv
     end
 
     opt = Flux.ADAM(params(m))
