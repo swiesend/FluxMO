@@ -47,7 +47,7 @@ function train(seed::Int = rand(1:10000))
         # a supervised scenario.
         # This clould also be done by DBSCAN, OPTICS, K-Means ...
         clustering, _ = knn_clustering(embds)
-        # Array{Array{Int64,1},1}
+        # 221-element Array{Array{Int64,1},1}:
         # Array{Int64,1}[[350, 837, 466, 364, 600, 964, 271, 976, 1, 804], …
 
         # Obtain tracked embedded values from the clustering
