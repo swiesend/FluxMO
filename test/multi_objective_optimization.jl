@@ -32,9 +32,9 @@ function train(seed::Int)
     embd_layer = 3
 
     function supervised_betacv()
-        m_copy = deepcopy(m)
+        
         # Embed all samples from X into the latent space of size L
-        embds_tracked = map(x-> m_copy[1:embd_layer](x), X)
+        embds_tracked = map(x-> m[1:embd_layer](x), X)
 
         # untracked embedded points
         embds  = hcat(map(ta->ta.data, embds_tracked)...)
