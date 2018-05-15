@@ -43,7 +43,7 @@ function train(seed::Int = rand(1:10000))
         embds  = hcat(map(ta->ta.data, embds_tracked)...)
         # 2×999 Array{Float64,2}:
         
-        # Cluster the current embeddings without tracking to generate
+        # Cluster the current untracked embeddings to generate
         # a supervised scenario.
         # This clould also be done by DBSCAN, OPTICS, K-Means ...
         clustering, _ = knn_clustering(embds)
