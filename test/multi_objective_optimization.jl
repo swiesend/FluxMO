@@ -7,20 +7,25 @@ using Flux.Tracker
 using Flux: crossentropy, throttle
 
 using FluxMO.Clustering: knn_clustering
-using FluxMO.Validation: betacv
+using FluxMO.Validation: betacv, betacv_pairwise
 
-function train(seed::Int = rand(1:10000))
+using Plots
+gr()
+
+function train(seed::Int = rand(1:10000); mode = :with_betacv)
+    seed = 8270
     srand(seed)
 
-    N = 1000    # samples
+    N = 1600    # samples
     M = 100     # data size
     L = 2       # latent space size
 
-    D = map(_->rand(M),1:N)
+    # generate correlated data
+    D = map(_->cumsum(rand(M)./round(Int,N/2)),1:N)
     X = deepcopy(D[1:end-1])
     Y = deepcopy(D[2:end])
 
-    a = tanh
+    a = sin
     m = Chain(
         Dense(M,   100, a),
         Dense(100, 10,  a),
@@ -31,7 +36,7 @@ function train(seed::Int = rand(1:10000))
     )
     embd_layer = 3
 
-    function supervised_betacv()
+    function supervised_betacv(i::Int)
         
         # Embed all samples from X into the latent space of size L
         embds_tracked = map(x-> m[1:embd_layer](x), X)
@@ -50,33 +55,62 @@ function train(seed::Int = rand(1:10000))
         # 221-element Array{Array{Int64,1},1}:
         # Array{Int64,1}[[350, 837, 466, 364, 600, 964, 271, 976, 1, 804], …
 
+        take = 1:20
         # Obtain tracked embedded values from the clustering
-        embds_clustered_tracked = map(c->map(i->embds_tracked[i],c), clustering)
+        embds_clustered_tracked = map(c->map(i->embds_tracked[i],c), clustering[take])
         # 221-element Array{Array{TrackedArray{…,Array{Float64,1}},1},1}:
-        # TrackedArray{…,Array{Float64,1}}[param([0.311645, 0.0285734]), param([0.309032, 0.019196])] 
+        # TrackedArray{…,Array{Float64,1}}[param([0.311645, 0.0285734]), param([0.309032, 0.019196]), …] 
         # ⋮
-
+        
         # Validate the clustering via BetaCV measure (small is good).
         # This is done with the tracked values, as it should influence
         # the model weights and biases towards optimizing this measure.
-        bcv = betacv(embds_clustered_tracked)
+        bcv = @time betacv(embds_clustered_tracked)
         # Flux.Tracker.TrackedReal{Float64}
 
         # untracked betacv calculates fine.
         # embds_clustered = map(c->map(i->embds[:,i],c), clustering)
         # bcv = betacv(embds_clustered)
 
-        @show bcv
+        # embds_clustered_tracked_matrix = map(c->hcat(map(i->embds_tracked[i],c)), clustering[take])
+        
+        # try classic betacv with for loops on tracked matrix
+        # bcvm = @time betacv(embds_clustered_tracked_matrix)
+
+        # try matrix optimized betacv for better backpropagation
+        # bcvp = @time betacv_pairwise(embds_clustered_tracked_matrix)
+        # ERROR: MethodError: no method matching one(::Type{TrackedArray{…,Array{Float64,1}}})
+        # Closest candidates are:
+        # one(::Type{Measures.Length{:mm,Float64}}) at /home/sebastian/.julia/v0.6/Plots/src/layouts.jl:13
+        # one(::Type{Measures.Length{:pct,Float64}}) at /home/sebastian/.julia/v0.6/Plots/src/layouts.jl:31
+        # one(::BitArray{2}) at bitarray.jl:427
+        # ...
+        # Stacktrace:
+        # [1] result_type at /home/sebastian/.julia/v0.6/Distances/src/metrics.jl:194 [inlined]
+        # [2] pairwise(::Distances.Euclidean, ::Array{TrackedArray{…,Array{Float64,1}},2}, ::Array{TrackedArray{…,Array{Float64,1}},2}) at /home/sebastian/.julia/v0.6/Distances/src/generic.jl:120
+        # [3] intra_cluster_weights_pairwise(::Array{Array{TrackedArray{…,Array{Float64,1}},2},1}) at /home/sebastian/develop/julia/dev/FluxMO/src/betacv.jl:48
+        # [4] betacv_pairwise(::Array{Array{TrackedArray{…,Array{Float64,1}},2},1}) at /home/sebastian/develop/julia/dev/FluxMO/src/betacv.jl:93
+        # [5] macro expansion at ./util.jl:237 [inlined]
+        # [6] (::#supervised_betacv#11{Array{Array{Float64,1},1},Flux.Chain,Int64})(::Int64) at ./none:63
+        # [7] (::#loss#18{Symbol,Flux.Chain,#supervised_betacv#11{Array{Array{Float64,1},1},Flux.Chain,Int64}})(::Array{Float64,1}, ::Array{Float64,1}, ::Int64) at ./none:87
+        # [8] #train!#130(::Flux.#throttled#14, ::Function, ::Function, ::Base.Iterators.Zip{Array{Array{Float64,1},1},Base.Iterators.Zip2{Array{Array{Float64,1},1},Array{Int64,1}}}, ::Flux.Optimise.##71#75) at /home/sebastian/.julia/v0.6/Flux/src/optimise/train.jl:39
+        # [9] (::Flux.Optimise.#kw##train!)(::Array{Any,1}, ::Flux.Optimise.#train!, ::Function, ::Base.Iterators.Zip{Array{Array{Float64,1},1},Base.Iterators.Zip2{Array{Array{Float64,1},1},Array{Int64,1}}}, ::Function) at ./<missing>:0
+        # [10] #train#1(::Symbol, ::Function, ::Int64) at ./none:110
+        # [11] train() at ./none:3
+        # [12] eval(::Module, ::Any) at ./boot.jl:235
+
         bcv
     end
 
-    last_bcv = 0.0
+    last_bcv = param(0.0)
+    last_ce = param(0.0)
 
     function loss(x, y, i = -1)
 
         # unsupervised
         ŷ = m(x)
-        ce = crossentropy(ŷ, y)
+        prev_ce = deepcopy(last_ce.tracker.data)
+        last_ce = crossentropy(ŷ, y)
 
         # supervised
 
@@ -88,13 +122,33 @@ function train(seed::Int = rand(1:10000))
 
         # apply after a fraction of all seen samples
         # do not apply when called manually from the callback
-        if i != -1 && i % floor(Int, (N-1)/3) == 0
-            println("applying betacv() after $i samples")
-            last_bcv = supervised_betacv()
+        # if i != -1 && i % floor(Int, (N-1)/3) == 0
+        if mode == :with_betacv
+            if i != -1 && i % 200 == 0
+                print("applying betacv() after $i samples\t")
+                prev_bcv = deepcopy(last_bcv.tracker.data)
+                
+                last_bcv = supervised_betacv(i)
+                println("betacv:       ", last_bcv, "\tdiff: ", last_bcv.tracker.data - prev_bcv)
+                println("crossentropy: ", last_ce,  "\tdiff: ", last_ce.tracker.data  - prev_ce)
+                println()
+            end
+        else
+            if i == N-1
+                print("applying betacv() after $i samples\t")
+                prev_bcv = deepcopy(last_bcv.tracker.data)
+                
+                last_bcv = supervised_betacv(i)
+                println("betacv:       ", last_bcv, "\tdiff: ", last_bcv.tracker.data - prev_bcv)
+                println("crossentropy: ", last_ce,  "\tdiff: ", last_ce.tracker.data  - prev_ce)
+                println()
+            end
         end
 
+        Flux.truncate!(m)
+
         # optimize both metrics
-        ce + last_bcv
+        last_ce + last_bcv
     end
 
     opt = Flux.ADAM(params(m))
@@ -115,8 +169,28 @@ function train(seed::Int = rand(1:10000))
         info("Epoch: $epoch (Seed: $seed)")
         Flux.train!(loss, zip(X, Y, collect(1:length(X))), opt, cb=throttle(callback,3))
     end
+
+    return X,Y,m,last_ce,last_bcv
 end
 
-train()
+X,Y,model,ce_bcv,bcv_bcv = train()
+data_bcv = deepcopy(hcat(map(x->model[1:3](x).data, X)...))
+ce_bcv = @sprintf "%1.5f" ce_bcv
+bcv_bcv = @sprintf "%1.5f" bcv_bcv
+
+X,Y,model,ce,bcv = train(mode = :other)
+data_ce = deepcopy(hcat(map(x->model[1:3](x).data, X)...))
+ce = @sprintf "%1.5f" ce
+bcv = @sprintf "%1.5f" bcv
+
+plot(
+    scatter(data_bcv[1,:], data_bcv[2,:],
+    label=["embedded (ce+bcv)"],
+    title="crossentropy: $ce_bcv\nbetacv:       $bcv_bcv"),
+
+    scatter(data_ce[1,:], data_ce[2,:],
+    label=["embedded (ce)"],
+    title="crossentropy: $ce\nbetacv:       $bcv"),
+)
 
 # end
