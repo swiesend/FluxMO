@@ -60,6 +60,12 @@ function train(seed::Int)
         # supervised
         bcv = 0.0
         
+        # NOTE:
+        # This is where I like to apply the second optimization...
+        # How to backtrack this function efficently?
+        #   * Do I have to treat it as second model with an supervised setting?
+        #   * or can I apply the `betacv` as intendet to the existing model?
+        # TODO:
         # apply after a certain amount of training
         if false 
             bcv = supervised_betacv()
