@@ -45,7 +45,7 @@ function train(seed::Int)
         values_tracked = map(c->map(i->embds_tracked[i],c), clustering)
 
         # Validate the clustering via BetaCV measure (small is good).
-        # This is done the tracked values, as it should influence
+        # This is done with the tracked values, as it should influence
         # the model weights and biases towards optimizing this measure.
         bcv = betacv(values_tracked)
 
