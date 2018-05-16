@@ -13,10 +13,10 @@ using Plots
 gr()
 
 function train(seed::Int = rand(1:10000); mode = :with_betacv)
-    seed = 8270
+    # seed = 8270
     srand(seed)
 
-    N = 5000    # samples
+    N = 1000    # samples
     M = 100     # data size
     L = 2       # latent space size
 
@@ -38,7 +38,11 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
     )
     embd_layer = 3
 
-    BCV_take = 10
+    BCV_take = 5
+
+    epochs = 1
+
+    kNN = 10
 
     function supervised_betacv(i::Int)
         
@@ -55,14 +59,15 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
         # Cluster the current untracked embeddings to generate
         # a supervised scenario.
         # This clould also be done by DBSCAN, OPTICS, K-Means ...
-        clustering, _ = knn_clustering(embds)
+        clustering, _ = knn_clustering(embds, k = kNN)
         # 221-element Array{Array{Int64,1},1}:
         # Array{Int64,1}[[350, 837, 466, 364, 600, 964, 271, 976, 1, 804], …
 
         # take only n random clusters to reduce backtracking...
-        # cn = length(clustering)
-        # take = unique(rand(1:cn, min(BCV_take,cn)))
-        take = 1:BCV_take
+        cn = length(clustering)
+        take = unique(rand(1:cn, min(BCV_take,cn)))
+        # take only n first clusters to reduce backtracking...
+        # take = 1:BCV_take
 
         # Obtain tracked embedded values from the clustering
         embds_clustered_tracked = map(c->map(i->embds_tracked[i],c), clustering[take])
@@ -163,15 +168,15 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
         println()
     end
 
-    for epoch in 1:1
+    for epoch in 1:epochs
         info("Epoch: $epoch (Seed: $seed)")
         Flux.train!(loss, zip(X, Y, collect(1:length(X))), opt, cb=throttle(callback,3))
     end
 
-    return X,Y,m,last_ce
+    return X,Y,m,last_ce, [seed,N,M,L,embd_layer,a,BCV_take,epochs,kNN]
 end
 
-X_bcv,Y_bcv,model_bcv,ce_bcv = train()
+X_bcv,Y_bcv,model_bcv,ce_bcv,opts = train()
 data_bcv = deepcopy(hcat(map(x->model_bcv[1:3](x).data, X_bcv)...))
 clustering, _ = knn_clustering(data_bcv)
 data_clustered = map(c->hcat(map(i->data_bcv[:,i],c)), clustering)
@@ -180,7 +185,7 @@ bcv_bcv = betacv(data_clustered)
 ce_bcv = @sprintf "%1.5f" ce_bcv
 bcv_bcv = @sprintf "%1.5f" bcv_bcv
 
-X_ce,Y_ce,model_ce,ce_ce = train(mode = :other)
+X_ce,Y_ce,model_ce,ce_ce,_ = train(mode = :other)
 data_ce = deepcopy(hcat(map(x->model_ce[1:3](x).data, X)...))
 clustering, _ = knn_clustering(data_ce)
 data_clustered = map(c->hcat(map(i->data_ce[:,i],c)), clustering)
@@ -188,7 +193,7 @@ bcv_ce = betacv(data_clustered)
 ce_ce = @sprintf "%1.5f" ce_ce
 bcv_ce = @sprintf "%1.5f" bcv_ce
 
-plot(
+p = plot(
     scatter(data_bcv[1,:], data_bcv[2,:],
     label=["embedded (ce+bcv)"],
     title="crossentropy: $ce_bcv\nbetacv:       $bcv_bcv"),
@@ -198,4 +203,5 @@ plot(
     title="crossentropy: $ce_ce\nbetacv:       $bcv_ce"),
 )
 
+savefig(p, string(now(), "_", opts, "_", ".png"))
 # end
