@@ -42,9 +42,9 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
 
     epochs = 1
 
-    kNN = 10
+    kNN = 20
 
-    randomize = true
+    randomize = false
 
     function supervised_betacv(i::Int)
         
@@ -191,7 +191,7 @@ ce_bcv = @sprintf "%1.5f" ce_bcv
 bcv_bcv = @sprintf "%1.5f" bcv_bcv
 
 X_ce,Y_ce,model_ce,ce_ce,_ = train(mode = :other)
-data_ce = deepcopy(hcat(map(x->model_ce[1:3](x).data, X)...))
+data_ce = deepcopy(hcat(map(x->model_ce[1:3](x).data, X_ce)...))
 clustering, _ = knn_clustering(data_ce)
 data_clustered = map(c->hcat(map(i->data_ce[:,i],c)), clustering)
 bcv_ce = betacv(data_clustered)
