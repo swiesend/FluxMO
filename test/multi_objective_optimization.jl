@@ -55,7 +55,10 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
         # 221-element Array{Array{Int64,1},1}:
         # Array{Int64,1}[[350, 837, 466, 364, 600, 964, 271, 976, 1, 804], …
 
-        take = 1:20
+        # take only n random clusters to reduce backtracking...
+        cn = length(clustering)
+        take = unique(rand(1:cn, min(10,cn)))
+
         # Obtain tracked embedded values from the clustering
         embds_clustered_tracked = map(c->map(i->embds_tracked[i],c), clustering[take])
         # 221-element Array{Array{TrackedArray{…,Array{Float64,1}},1},1}:
@@ -173,15 +176,15 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
     return X,Y,m,last_ce,last_bcv
 end
 
-X,Y,model,ce_bcv,bcv_bcv = train()
-data_bcv = deepcopy(hcat(map(x->model[1:3](x).data, X)...))
+X_bcv,Y_bcv,model_bcv,ce_bcv,bcv_bcv = train()
+data_bcv = deepcopy(hcat(map(x->model_bcv[1:3](x).data, X_bcv)...))
 ce_bcv = @sprintf "%1.5f" ce_bcv
 bcv_bcv = @sprintf "%1.5f" bcv_bcv
 
-X,Y,model,ce,bcv = train(mode = :other)
-data_ce = deepcopy(hcat(map(x->model[1:3](x).data, X)...))
-ce = @sprintf "%1.5f" ce
-bcv = @sprintf "%1.5f" bcv
+X_ce,Y_ce,model_ce,ce_ce,bcv_ce = train(mode = :other)
+data_ce = deepcopy(hcat(map(x->model_ce[1:3](x).data, X)...))
+ce_ce = @sprintf "%1.5f" ce_ce
+bcv_ce = @sprintf "%1.5f" bcv_ce
 
 plot(
     scatter(data_bcv[1,:], data_bcv[2,:],
@@ -190,7 +193,7 @@ plot(
 
     scatter(data_ce[1,:], data_ce[2,:],
     label=["embedded (ce)"],
-    title="crossentropy: $ce\nbetacv:       $bcv"),
+    title="crossentropy: $ce_ce\nbetacv:       $bcv_ce"),
 )
 
 # end
