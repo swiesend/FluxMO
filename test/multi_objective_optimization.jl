@@ -21,7 +21,7 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
     L = 2       # latent space size
 
     # generate correlated data
-    D = map(_->cumsum(rand(M)./round(Int,N/2)),1:N)
+    D = map(_->abs.(cumsum(rand(M)./round(Int,N/2))),1:N)
     # cor(D[1],D[2])
 
     X = deepcopy(D[1:end-1])
@@ -147,9 +147,8 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
                 prev_bcv = deepcopy(last_bcv.tracker.data)
                 
                 last_bcv = supervised_betacv(i)
-                println("betacv:       ", last_bcv, "\tdiff: ", last_bcv.tracker.data - prev_bcv)
                 println("crossentropy: ", last_ce,  "\tdiff: ", last_ce.tracker.data  - prev_ce)
-                println()
+                println("betacv:       ", last_bcv, "\tdiff: ", last_bcv.tracker.data - prev_bcv)
             end
         end
 
@@ -165,12 +164,12 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
     function callback()
         # sqrt(N) random samples for approx. loss
         ns = rand(1:N-1, round(Int, sqrt(N)))
-        ls = map(n->loss(X[n], Y[n]).tracker.data, ns)
-        println("Train: loss:  ", sum(ls)/length(ns), "\tstd: ", std(ls))
+        ls = [loss(X[n], Y[n]) for n in ns]
+        println("Train: loss:  ", sum(ls)/length(ls), "\tstd:  ", std(ls))
 
         # one embedding example
         embd = m[1:embd_layer](X[rand(1:N-1)]).data
-        println("Embedding: ", embd)
+        println("Embedding:    ", embd)
         
         println()
     end
@@ -189,25 +188,25 @@ clustering, _ = knn_clustering(data_bcv)
 data_clustered = map(c->hcat(map(i->data_bcv[:,i],c)), clustering)
 bcv_bcv = betacv(data_clustered)
 
-ce_bcv = @sprintf "%1.5f" ce_bcv
-bcv_bcv = @sprintf "%1.5f" bcv_bcv
+ce_bcv_s = @sprintf "%1.2e" ce_bcv
+bcv_bcv_s = @sprintf "%1.5f" bcv_bcv
 
 X_ce,Y_ce,model_ce,ce_ce,_ = train(mode = :other)
 data_ce = deepcopy(hcat(map(x->model_ce[1:3](x).data, X_ce)...))
 clustering, _ = knn_clustering(data_ce)
 data_clustered = map(c->hcat(map(i->data_ce[:,i],c)), clustering)
 bcv_ce = betacv(data_clustered)
-ce_ce = @sprintf "%1.5f" ce_ce
-bcv_ce = @sprintf "%1.5f" bcv_ce
+ce_ce_s = @sprintf "%1.2e" ce_ce
+bcv_ce_s = @sprintf "%1.5f" bcv_ce
 
 p = plot(
     scatter(data_bcv[1,:], data_bcv[2,:],
     label=["embedded (ce+bcv)"],
-    title="crossentropy: $ce_bcv\nbetacv:       $bcv_bcv"),
+    title="crossentropy: $ce_bcv_s\nbetacv: $bcv_bcv_s"),
 
     scatter(data_ce[1,:], data_ce[2,:],
     label=["embedded (ce)"],
-    title="crossentropy: $ce_ce\nbetacv:       $bcv_ce"),
+    title="crossentropy: $ce_ce_s\nbetacv: $bcv_ce_s"),
 )
 
 savefig(p, string(now(), "_", opts, "_", ".png"))
