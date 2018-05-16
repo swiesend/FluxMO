@@ -16,12 +16,14 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
     seed = 8270
     srand(seed)
 
-    N = 1600    # samples
+    N = 5000    # samples
     M = 100     # data size
     L = 2       # latent space size
 
     # generate correlated data
     D = map(_->cumsum(rand(M)./round(Int,N/2)),1:N)
+    # cor(D[1],D[2])
+
     X = deepcopy(D[1:end-1])
     Y = deepcopy(D[2:end])
 
@@ -35,6 +37,8 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
         Dense(100, M,   sigmoid),
     )
     embd_layer = 3
+
+    BCV_take = 10
 
     function supervised_betacv(i::Int)
         
@@ -56,8 +60,9 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
         # Array{Int64,1}[[350, 837, 466, 364, 600, 964, 271, 976, 1, 804], …
 
         # take only n random clusters to reduce backtracking...
-        cn = length(clustering)
-        take = unique(rand(1:cn, min(10,cn)))
+        # cn = length(clustering)
+        # take = unique(rand(1:cn, min(BCV_take,cn)))
+        take = 1:BCV_take
 
         # Obtain tracked embedded values from the clustering
         embds_clustered_tracked = map(c->map(i->embds_tracked[i],c), clustering[take])
@@ -127,17 +132,7 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
         # do not apply when called manually from the callback
         # if i != -1 && i % floor(Int, (N-1)/3) == 0
         if mode == :with_betacv
-            if i != -1 && i % 200 == 0
-                print("applying betacv() after $i samples\t")
-                prev_bcv = deepcopy(last_bcv.tracker.data)
-                
-                last_bcv = supervised_betacv(i)
-                println("betacv:       ", last_bcv, "\tdiff: ", last_bcv.tracker.data - prev_bcv)
-                println("crossentropy: ", last_ce,  "\tdiff: ", last_ce.tracker.data  - prev_ce)
-                println()
-            end
-        else
-            if i == N-1
+            if i != -1 && i % 100 == 0
                 print("applying betacv() after $i samples\t")
                 prev_bcv = deepcopy(last_bcv.tracker.data)
                 
@@ -173,16 +168,23 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
         Flux.train!(loss, zip(X, Y, collect(1:length(X))), opt, cb=throttle(callback,3))
     end
 
-    return X,Y,m,last_ce,last_bcv
+    return X,Y,m,last_ce
 end
 
-X_bcv,Y_bcv,model_bcv,ce_bcv,bcv_bcv = train()
+X_bcv,Y_bcv,model_bcv,ce_bcv = train()
 data_bcv = deepcopy(hcat(map(x->model_bcv[1:3](x).data, X_bcv)...))
+clustering, _ = knn_clustering(data_bcv)
+data_clustered = map(c->hcat(map(i->data_bcv[:,i],c)), clustering)
+bcv_bcv = betacv(data_clustered)
+
 ce_bcv = @sprintf "%1.5f" ce_bcv
 bcv_bcv = @sprintf "%1.5f" bcv_bcv
 
-X_ce,Y_ce,model_ce,ce_ce,bcv_ce = train(mode = :other)
+X_ce,Y_ce,model_ce,ce_ce = train(mode = :other)
 data_ce = deepcopy(hcat(map(x->model_ce[1:3](x).data, X)...))
+clustering, _ = knn_clustering(data_ce)
+data_clustered = map(c->hcat(map(i->data_ce[:,i],c)), clustering)
+bcv_ce = betacv(data_clustered)
 ce_ce = @sprintf "%1.5f" ce_ce
 bcv_ce = @sprintf "%1.5f" bcv_ce
 
