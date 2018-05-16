@@ -45,10 +45,12 @@ function intra_cluster_weights_pairwise(C::AbstractArray)
     W_in = 0.0
     N_in = 0
     for (i,S) in enumerate(C)
+        # NOTE: problem 1: setindex! is not differentiable
+        # NOTE: problem 2: Tracked Float64 can be convert to Float64
         W_in = W_in + weights_pairwise(S,S)
         N_in += binomial(size(S)[1],2)
     end
-    0.5*sum(W_in), N_in
+    0.5*W_in, N_in
 end
 
 
@@ -72,9 +74,8 @@ function inter_cluster_weights_pairwise(C::AbstractArray)
     for (i,S) in enumerate(C)
         for (j,R) in enumerate(C)
             if j > i
-                @show size(S), size(R)
                 W_out = W_out + weights_pairwise(S,R)
-                N_out += length(S) * length(R)
+                N_out += size(S)[1] * size(R)[1]
             end
         end
     end
