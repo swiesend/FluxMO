@@ -16,7 +16,7 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
     # seed = 8270
     srand(seed)
 
-    N = 1000    # samples
+    N = 5000    # samples
     M = 100     # data size
     L = 2       # latent space size
 
@@ -44,6 +44,8 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
 
     kNN = 10
 
+    randomize = true
+
     function supervised_betacv(i::Int)
         
         # Embed all samples from X into the latent space of size L
@@ -63,11 +65,14 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
         # 221-element Array{Array{Int64,1},1}:
         # Array{Int64,1}[[350, 837, 466, 364, 600, 964, 271, 976, 1, 804], …
 
-        # take only n random clusters to reduce backtracking...
-        cn = length(clustering)
-        take = unique(rand(1:cn, min(BCV_take,cn)))
         # take only n first clusters to reduce backtracking...
-        # take = 1:BCV_take
+        take = 1:BCV_take
+        
+        # take only n random clusters to reduce backtracking...
+        if randomize
+            cn = length(clustering)
+            take = unique(rand(1:cn, min(BCV_take,cn)))
+        end
 
         # Obtain tracked embedded values from the clustering
         embds_clustered_tracked = map(c->map(i->embds_tracked[i],c), clustering[take])
@@ -173,7 +178,7 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
         Flux.train!(loss, zip(X, Y, collect(1:length(X))), opt, cb=throttle(callback,3))
     end
 
-    return X,Y,m,last_ce, [seed,N,M,L,embd_layer,a,BCV_take,epochs,kNN]
+    return X,Y,m,last_ce, [seed,N,M,L,embd_layer,a,BCV_take,epochs,kNN,randomize]
 end
 
 X_bcv,Y_bcv,model_bcv,ce_bcv,opts = train()
