@@ -16,7 +16,7 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
     # seed = 8270
     srand(seed)
 
-    N = 5000    # samples
+    N = 1000    # samples
     M = 100     # data size
     L = 2       # latent space size
 
@@ -153,6 +153,7 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
             end
         end
 
+        # NOTE: Does this even help to reduce the Stacktrace?
         Flux.truncate!(m)
 
         # optimize both metrics
@@ -162,13 +163,14 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
     opt = Flux.ADAM(params(m))
 
     function callback()
+        # sqrt(N) random samples for approx. loss
         ns = rand(1:N-1, round(Int, sqrt(N)))
         ls = map(n->loss(X[n], Y[n]).tracker.data, ns)
-        println("Training:  loss: ", sum(ls), "\tstd: ", std(ls))
+        println("Train: loss:  ", sum(ls)/length(ns), "\tstd: ", std(ls))
 
-        # embeddings
-        es = m[1:embd_layer](X[rand(1:N-1)]).data
-        println("Embedding: ", es)
+        # one embedding example
+        embd = m[1:embd_layer](X[rand(1:N-1)]).data
+        println("Embedding: ", embd)
         
         println()
     end
