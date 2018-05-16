@@ -12,8 +12,9 @@ using FluxMO.Validation: betacv, betacv_pairwise
 using Plots
 gr()
 
-function train(seed::Int = rand(1:10000); mode = :with_betacv)
-    # seed = 8270
+
+function train(seed::Int; mode = :with_betacv)
+    
     srand(seed)
 
     N = 1000    # samples
@@ -27,7 +28,7 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
     X = deepcopy(D[1:end-1])
     Y = deepcopy(D[2:end])
 
-    a = sin
+    a = tanh
     m = Chain(
         Dense(M,   100, a),
         Dense(100, 10,  a),
@@ -42,7 +43,7 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
 
     epochs = 1
 
-    kNN = 20
+    kNN = 40
 
     randomize = false
 
@@ -168,8 +169,9 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
         println("Train: loss:  ", sum(ls)/length(ls), "\tstd:  ", std(ls))
 
         # one embedding example
-        embd = m[1:embd_layer](X[rand(1:N-1)]).data
-        println("Embedding:    ", embd)
+        n = rand(1:N-1)
+        embd = m[1:embd_layer](X[n]).data
+        println("Embedding:    ", embd, " ($n)")
         
         println()
     end
@@ -179,10 +181,13 @@ function train(seed::Int = rand(1:10000); mode = :with_betacv)
         Flux.train!(loss, zip(X, Y, collect(1:length(X))), opt, cb=throttle(callback,3))
     end
 
-    return X,Y,m,last_ce, [seed,N,M,L,embd_layer,a,BCV_take,epochs,kNN,randomize]
+    return X,Y,m,last_ce.tracker.data, [seed,N,M,L,embd_layer,a,BCV_take,epochs,kNN,randomize]
 end
 
-X_bcv,Y_bcv,model_bcv,ce_bcv,opts = train()
+
+seed = rand(1:10000)
+
+X_bcv,Y_bcv,model_bcv,ce_bcv,opts = train(seed)
 data_bcv = deepcopy(hcat(map(x->model_bcv[1:3](x).data, X_bcv)...))
 clustering, _ = knn_clustering(data_bcv)
 data_clustered = map(c->hcat(map(i->data_bcv[:,i],c)), clustering)
@@ -191,7 +196,7 @@ bcv_bcv = betacv(data_clustered)
 ce_bcv_s = @sprintf "%1.2e" ce_bcv
 bcv_bcv_s = @sprintf "%1.5f" bcv_bcv
 
-X_ce,Y_ce,model_ce,ce_ce,_ = train(mode = :other)
+X_ce,Y_ce,model_ce,ce_ce,_ = train(seed, mode = :other)
 data_ce = deepcopy(hcat(map(x->model_ce[1:3](x).data, X_ce)...))
 clustering, _ = knn_clustering(data_ce)
 data_clustered = map(c->hcat(map(i->data_ce[:,i],c)), clustering)
