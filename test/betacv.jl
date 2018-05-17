@@ -80,7 +80,14 @@ end
     @test naive_n_out(C) == 60
 
     @test betacv(C) ≈ 0.0428571428571428
-    @test betacv(C) < (1.4681892332789561 / 10)
+    for _ in 1:10
+        @time betacv(C)
+    end
+
+    @test betacv_fused(C) ≈ 0.0428571428571428
+    for _ in 1:10
+        @time betacv_fused(C)
+    end
 
     # high BetaCV
     C = [
@@ -92,8 +99,8 @@ end
         [[6.0, 6.0], [1.1, 1.1]], # 6
     ]
 
-    @test betacv(C) > (0.0428571428571428 * 10)
     @test betacv(C) ≈ 1.4681892332789561
+    #               > 0.0428571428571428
 
 end
 
@@ -127,7 +134,14 @@ end
     @test expected[2] == 60
     @test naive_n_out(C) == 60
 
-    @test betacv(C) ≈ 0.0428571428571428
+    @test betacv(C).tracker.data ≈ 0.0428571428571428
+    for _ in 1:10
+        @time betacv(C)
+    end
+    @test betacv_fused(C).tracker.data ≈ 0.0428571428571428
+    for _ in 1:10
+        @time betacv_fused(C)
+    end
 
     C[1][1].grad ≈ [0.0, 0.0]
 
@@ -163,7 +177,7 @@ end
         [param(6.0) param(6.1); param(6.0) param(6.1)], # 6
     ]
     @test typeof(C_tracked[1]) == Array{Flux.Tracker.TrackedReal{Float64},2}
-    
+
     # intra
     expected = intra_cluster_weights_pairwise(C)
     result   = intra_cluster_weights_pairwise(C_tracked)

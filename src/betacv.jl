@@ -90,6 +90,39 @@ function betacv(C::AbstractArray)
     (W_in / N_in) / (W_out / N_out)
 end
 
+
+function betacv_fused(C::AbstractArray; metric::Function = Distances.euclidean)
+    K = length(C)
+    W_in, W_out = 0.0, 0.0
+    N_in, N_out = 0,   0
+
+    for i in 1:K
+        # intra cluster weights
+        for k in 1:length(C[i])
+            for l in 1:length(C[i])
+                if k > l
+                    W_in += metric(C[i][k],C[i][l])
+                end
+            end
+        end
+        N_in += binomial(length(C[i]),2)
+        # inter cluster weights
+        for j in 1:K
+            if j > i
+                for s in C[i]
+                    for r in C[j]
+                        W_out += metric(s,r)
+                    end
+                end
+                N_out += size(C[i])[1] * size(C[j])[1]
+            end
+        end
+    end
+    
+    (W_in / N_in) / (W_out / N_out)
+end
+
+
 function betacv_pairwise(C::AbstractArray)
     W_in, N_in = intra_cluster_weights_pairwise(C)
     W_out, N_out = inter_cluster_weights_pairwise(C)
