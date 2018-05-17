@@ -17,7 +17,7 @@ function train(seed::Int; mode = :with_betacv)
     
     srand(seed)
 
-    N = 1000    # samples
+    N = 2000    # samples
     M = 100     # data size
     L = 2       # latent space size
 
@@ -28,22 +28,23 @@ function train(seed::Int; mode = :with_betacv)
     X = deepcopy(D[1:end-1])
     Y = deepcopy(D[2:end])
 
-    a = tanh
+    a = sin
+    s = 1
     m = Chain(
-        Dense(M,   100, a),
-        Dense(100, 10,  a),
-        Dense(10,  L,   a),
-        Dense(L,   10,  a),
-        Dense(10,  100, a),
-        Dense(100, M,   sigmoid),
+        Dense(    M, 100*s, a),
+        Dense(100*s,  10*s, a),
+        Dense( 10*s,     L, a),
+        Dense(    L,  10*s, a),
+        Dense( 10*s, 100*s, a),
+        Dense(100*s,     M, sigmoid),
     )
     embd_layer = 3
 
-    BCV_take = 5
+    BCV_take = 20
 
     epochs = 1
 
-    kNN = 40
+    kNN = 30
 
     randomize = false
 
@@ -139,14 +140,14 @@ function train(seed::Int; mode = :with_betacv)
         #   * Do I have to treat it as second model with an supervised setting?
         #   * or can I apply the `betacv` as intendet to the existing model?
 
-        # apply after a fraction of all seen samples
-        # do not apply when called manually from the callback
-        # if i != -1 && i % floor(Int, (N-1)/3) == 0
         if mode == :with_betacv
+            # apply after a fraction of all seen samples
+            # do not apply when called manually from the callback
             if i != -1 && i % 100 == 0
-                print("applying betacv() after $i samples\t")
+            # if i != -1 && i % floor(Int, (N-1)/3) == 0
+                print("betacv() after $i samples $kNN $BCV_take \t")
                 prev_bcv = deepcopy(last_bcv.tracker.data)
-                
+
                 last_bcv = supervised_betacv(i)
                 println("crossentropy: ", last_ce,  "\tdiff: ", last_ce.tracker.data  - prev_ce)
                 println("betacv:       ", last_bcv, "\tdiff: ", last_bcv.tracker.data - prev_bcv)
@@ -155,6 +156,15 @@ function train(seed::Int; mode = :with_betacv)
 
         # NOTE: Does this even help to reduce the Stacktrace?
         Flux.truncate!(m)
+        # Flux.reset!(m)
+
+        # may fail for `tanh` as activation function...
+        if isnan(last_ce)
+            # @show x, ŷ, y, i
+            @show last_ce, prev_ce
+            @show i
+            @show ŷ
+        end
 
         # optimize both metrics
         last_ce + last_bcv
@@ -169,9 +179,10 @@ function train(seed::Int; mode = :with_betacv)
         println("Train: loss:  ", sum(ls)/length(ls), "\tstd:  ", std(ls))
 
         # one embedding example
+        embd = m[1:embd_layer](X[10]).data
         n = rand(1:N-1)
-        embd = m[1:embd_layer](X[n]).data
-        println("Embedding:    ", embd, " ($n)")
+        embd_r = m[1:embd_layer](X[n]).data
+        println("Embedding:    ", embd," (10)   \t",embd_r," ($n)")
         
         println()
     end
@@ -186,6 +197,7 @@ end
 
 
 seed = rand(1:10000)
+# seed = 8651  # fails after 500 samples...
 
 X_bcv,Y_bcv,model_bcv,ce_bcv,opts = train(seed)
 data_bcv = deepcopy(hcat(map(x->model_bcv[1:3](x).data, X_bcv)...))
