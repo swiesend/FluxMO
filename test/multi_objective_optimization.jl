@@ -17,7 +17,7 @@ function train(seed::Int; mode = :with_betacv)
     
     srand(seed)
 
-    N = 2000    # samples
+    N = 1000    # samples
     M = 100     # data size
     L = 2       # latent space size
 
@@ -44,7 +44,7 @@ function train(seed::Int; mode = :with_betacv)
 
     epochs = 1
 
-    kNN = 30
+    kNN = 20
 
     randomize = false
 
@@ -145,7 +145,7 @@ function train(seed::Int; mode = :with_betacv)
             # do not apply when called manually from the callback
             if i != -1 && i % 100 == 0
             # if i != -1 && i % floor(Int, (N-1)/3) == 0
-                print("betacv() after $i samples $kNN $BCV_take \t")
+                println("betacv() after $i samples $kNN $BCV_take \t")
                 prev_bcv = deepcopy(last_bcv.tracker.data)
 
                 last_bcv = supervised_betacv(i)
